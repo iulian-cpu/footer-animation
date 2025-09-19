@@ -9,7 +9,6 @@
   function init(){
     if (!window.gsap) return;
 
-    /* ================= SELECTORS ================= */
     const S = {
       header: '.navbar',
       logosWrap: '.navbar-logos-wrap',
@@ -18,11 +17,11 @@
       logoTalk:  '.navbar-logo-second',
 
       btn: '.navbar-btn',
-      text1: '.navbar-btn [navbar-text="1"]', // "Menu"
-      text2: '.navbar-btn [navbar-text="2"]', // "Close"
+      text1: '[navbar-text="1"]',   // "Menu"
+      text2: '[navbar-text="2"]',   // "Close"
 
       frontLinksWrap: '.navbar-front-links',
-      frontLink: '.navbat-front-text', // exact cum e în HTML-ul tău
+      frontLink: '.navbat-front-text', // exact ca în markup
 
       backLinksWrap:  '.navbar-back-links',
 
@@ -37,18 +36,17 @@
 
     const $$  = s => document.querySelector(s);
     const $$$ = s => Array.from(document.querySelectorAll(s));
+    const css = el => { try { return el ? getComputedStyle(el) : null; } catch(_) { return null; } };
 
     const headerEl = $$(S.header);
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
-    /* ================= CONSTANTE & UTILS ================= */
     const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const D = reduce ? 0.0001 : 0.85;
     const E = 'power3.inOut';
 
-    const css = el => { try { return el ? getComputedStyle(el) : null; } catch(_) { return null; } };
     function hiddenHeight(el, displayMode='block'){
       if (!el) return 0;
       const prev = { display: el.style.display, position: el.style.position, visibility: el.style.visibility, left: el.style.left, height: el.style.height, overflow: el.style.overflow };
@@ -60,14 +58,12 @@
     }
     const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
 
-    // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
       { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
 
-    // bilele rămân sub buton
     $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
 
-    /* ================= OVERLAY "HOLE" ================= */
+    /* ============== OVERLAY HOLE ============== */
     const T  = 8, TD = 35, X = 1.5; // vw
     document.querySelectorAll('#nnc-overlay').forEach(n => n.remove());
     const overlay = document.createElement('div'); overlay.id='nnc-overlay';
@@ -87,37 +83,37 @@
     const applyHole = ()=>{ hole.style.setProperty('--t', holeState.t+'vw'); hole.style.setProperty('--x', holeState.x+'vw'); hole.style.opacity=String(holeState.o); };
     applyHole();
 
-    /* ================= STARE INIȚIALĂ ================= */
-    const btnBorder0  = getComputedStyle(btn).borderColor;
-    const text2Color0 = getComputedStyle($$(S.text2))?.color || COL.dark;
-
+    /* ============== UTIL: logo toggle + front text color ============== */
     function showLogo(white=true){
       const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
       if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
       if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
     }
+    function frontTextNodes(){
+      return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
+    }
+    function setFrontTextColor(color){ frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' })); }
+
+    /* ============== INITIAL ============== */
+    const btnBorder0  = getComputedStyle(btn).borderColor;
+    const text2Color0 = getComputedStyle($$(S.text2))?.color || COL.dark;
 
     function setInitial(){
       gsap.set(S.text1, { y:0, color: COL.light });
       gsap.set(S.text2, { y:H(S.text2) });
-      // brand: afișăm logo alb by default, "talk" jos (ascuns)
       showLogo(true);
       const talk = $$(S.logoTalk);
-      if (talk) gsap.set(talk, { y:3*H(S.logoTalk) });
-
+      if (talk) gsap.set(talk, { y:3*(talk.getBoundingClientRect().height||20) });
       gsap.set(S.frontLinksWrap, { y:0, autoAlpha:1 });
       const back=$$(S.backLinksWrap);
       if (back) gsap.set(back, { display:'none', y:hiddenHeight(back), autoAlpha:0 });
-
-      // culori pentru front links
-      $$$(`${S.frontLink}`).forEach(el=> gsap.set(el, { color: COL.light }));
-
+      setFrontTextColor(COL.light);
       gsap.set(btn, { borderColor: COL.light });
       holeState.t=0; holeState.x=0; holeState.o=0; applyHole();
     }
     setInitial();
 
-    /* ================= TIMELINE MENIU ================= */
+    /* ============== TIMELINE MENU ============== */
     const tl = gsap.timeline({
       paused:true,
       defaults:{ ease:E },
@@ -126,9 +122,6 @@
         allowDdResize=true;
         gsap.set(S.text1, { y:-H(S.text1) });
         gsap.set(S.text2, { y:0, color: COL.dark });
-        // logos: ascundem brandul și aducem "talk"
-        const talk=$$(S.logoTalk);
-        if (talk) { /* e deja animat */ }
         gsap.set(S.frontLinksWrap, { y:-H(S.frontLinksWrap), autoAlpha:0 });
         gsap.set(S.backLinksWrap,  { y:0, autoAlpha:1, display:'flex' });
         holeState.t=T; holeState.x=X; holeState.o=1; applyHole();
@@ -140,7 +133,6 @@
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
-        // reasigură culorile în funcție de secțiunea albă
         applyWhiteState();
       }
     });
@@ -148,7 +140,6 @@
     tl.add('go')
       .to(S.text1, { y:()=>-H(S.text1), duration:D*0.7 }, 'go')
       .to(S.text2, { y:0,             duration:D*0.7 }, 'go')
-      // logos: brand (alb/negru) urcă, "talk" coboară în view
       .to(S.logoWhite, { y:()=>-H(S.logoWhite), duration:D*0.8 }, 'go+=0.02')
       .to(S.logoBlack, { y:()=>-H(S.logoBlack), duration:D*0.8 }, 'go+=0.02')
       .to(S.logoTalk,  { y:0,                  duration:D*0.8 }, 'go+=0.02')
@@ -169,12 +160,11 @@
       if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom){ e.preventDefault(); toggleMenu(); }
     }, true);
 
-    /* ================= HOVER SHIFT pe [navbar-link] ================= */
-    ;(function(){
+    /* ============== HOVER SHIFT [navbar-link] + bile ============== */
+    (function(){
       const SHIFT='3.13vw', HOVER_D=0.44, HOVER_E='power3.out';
       const links = $$$(`${S.linkSel}`);
       const ballFor = (i) => document.querySelector(`[navbar-ball="${i}"]`) || null;
-
       let hoverIndex = null;
       function applyHoverLayout(){
         links.forEach((el)=>{
@@ -185,20 +175,17 @@
           if (b) gsap.to(b, { x: (hoverIndex === idx) ? SHIFT : '0vw', duration:HOVER_D, ease:HOVER_E, overwrite:'auto' });
         });
       }
-
       links.forEach((el)=>{
         el.addEventListener('mouseenter', ()=>{ hoverIndex = parseInt(el.getAttribute('navbar-link'),10) || (links.indexOf(el)+1); applyHoverLayout(); });
         el.addEventListener('mouseleave', (e)=>{ const rel=e.relatedTarget; if (!rel || !rel.closest(S.linkSel)) { hoverIndex=null; applyHoverLayout(); } });
       });
-
       (document.querySelector('.navbar-links-list-wrap') || document.querySelector('.navbar-wrapper') || document.body)
         .addEventListener('mouseleave', ()=>{ hoverIndex=null; applyHoverLayout(); });
-
       applyHoverLayout();
     })();
 
-    /* ================= ROLL pe [navbar-text-animation] ================= */
-    ;(function rollEffectV2(){
+    /* ============== ROLL effect [navbar-text-animation] ============== */
+    (function rollEffectV2(){
       const ROLL_SEL = S.rollSel;
       document.querySelectorAll(ROLL_SEL).forEach(el => {
         if (el.dataset.ntaInit === 'v2') return;
@@ -244,8 +231,8 @@
       });
     })();
 
-    /* ================= DROPDOWN height-auto robust ================= */
-    ;(function(){
+    /* ============== DROPDOWN height-auto robust ============== */
+    (function(){
       const items = $$$(`${S.navLinkBlockSel}`);
       const OPEN_PB = 8;
 
@@ -317,10 +304,10 @@
       });
     })();
 
-    /* ================= DROPDOWN state & overlay top ================= */
+    /* ============== DROPDOWN STATE & OVERLAY TOP ============== */
     const ddScope   = document.querySelector(S.ddScope) || document;
     const ddRoots   = Array.from(ddScope.querySelectorAll('.w-dropdown'));
-    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" exact ca în markup
+    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" e corect după markup
     const ddLists   = Array.from(ddScope.querySelectorAll('.navbar-navigation.w-dropdown-list'));
     const navLinks  = $$$(`${S.linkSel}`);
     const TOGGLE_Z  = headerZ + 20, LIST_Z = headerZ + 10;
@@ -357,30 +344,30 @@
       applyDropdownState();
     }
 
-    /* ================= DETECTARE [is-white-section] ================= */
+    /* ============== DETECTARE [is-white-section] & APPLY ============== */
     function underHeaderIsWhite(){
       const r = headerEl.getBoundingClientRect();
       const x = Math.floor(window.innerWidth / 2);
       const y = Math.max(0, Math.floor(r.bottom - 1));
       let el = document.elementFromPoint(x, y);
+      const IGNORES = new Set(['svg','use','path','g','rect','circle','line','polygon','polyline']);
       while (el && el !== document.body){
         if (el.matches && el.matches('[is-white-section]')) return true;
+        if (!IGNORES.has(el.tagName?.toLowerCase())) { /* keep climbing */ }
         el = el.parentElement;
       }
       return false;
     }
     function applyWhiteState(){
-      // dacă meniul e deschis, nu schimbăm cromatica (timeline decide)
-      if (tl.progress() > 0 && !tl.reversed()) return;
+      const txt1 = $$(S.text1);
+      if (!txt1) console.warn('[Navbar] Lipsă [navbar-text="1"] în DOM.');
+      if (tl.progress() > 0 && !tl.reversed()) return; // nu suprascrie când meniul e deschis
 
       const onWhite = underHeaderIsWhite();
-      // culori buton + front links
       gsap.to(btn, { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-      $$$(`${S.frontLink}`).forEach(el=> gsap.to(el, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' }));
-      gsap.to(S.text1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-
-      // logo alb/negru
-      showLogo(!onWhite);
+      if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+      setFrontTextColor(onWhite ? COL.dark : COL.light);
+      showLogo(!onWhite); // pe alb → logo negru
     }
     const rafWhite = () => requestAnimationFrame(applyWhiteState);
     window.addEventListener('load', rafWhite, { passive:true });
@@ -388,7 +375,7 @@
     window.addEventListener('scroll', rafWhite, { passive:true });
     applyWhiteState();
 
-    /* ================= CLOSE ON SCROLL + SMART HEADER ================= */
+    /* ============== CLOSE ON SCROLL + SMART HEADER ============== */
     let lastY = window.pageYOffset || 0, ticking=false;
     window.addEventListener('scroll', ()=>{
       if (ticking) return; ticking=true;
@@ -402,7 +389,7 @@
       });
     }, { passive:true });
 
-    ;(function(){
+    (function(){
       const header=headerEl; if(!header) return;
       gsap.set(header,{ y:0, willChange:'transform', force3D:true });
       let lastY=window.pageYOffset||0, ticking=false, hidden=false, Hh=header.getBoundingClientRect().height;
@@ -420,7 +407,7 @@
       }, { passive:true });
     })();
 
-    /* ================= REVALIDARE pe RESIZE / BFCache ================= */
+    /* ============== REVALIDARE pe RESIZE / BFCache ============== */
     let rAF;
     window.addEventListener('resize', ()=>{
       cancelAnimationFrame(rAF);
@@ -437,3 +424,4 @@
     });
   }
 })();
+
