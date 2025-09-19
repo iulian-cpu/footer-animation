@@ -7,7 +7,7 @@
   try { (window.Webflow = window.Webflow || []).push(boot); } catch(e){}
 
   function init(){
-    if (!window.gsap) return;
+    if (!window.gsap) { console.error('[Navbar] GSAP missing'); return; }
 
     const S = {
       header: '.navbar',
@@ -21,7 +21,7 @@
       text2: '[navbar-text="2"]',   // "Close"
 
       frontLinksWrap: '.navbar-front-links',
-      frontLink: '.navbat-front-text', // exact ca în markup
+      frontLink: '.navbat-front-text', // exact ca în markup-ul tău
 
       backLinksWrap:  '.navbar-back-links',
 
@@ -58,9 +58,9 @@
     }
     const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
 
+    // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
       { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
-
     $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
 
     /* ============== OVERLAY HOLE ============== */
@@ -307,7 +307,7 @@
     /* ============== DROPDOWN STATE & OVERLAY TOP ============== */
     const ddScope   = document.querySelector(S.ddScope) || document;
     const ddRoots   = Array.from(ddScope.querySelectorAll('.w-dropdown'));
-    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" e corect după markup
+    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" după markup
     const ddLists   = Array.from(ddScope.querySelectorAll('.navbar-navigation.w-dropdown-list'));
     const navLinks  = $$$(`${S.linkSel}`);
     const TOGGLE_Z  = headerZ + 20, LIST_Z = headerZ + 10;
@@ -347,28 +347,42 @@
     /* ============== DETECTARE [is-white-section] & APPLY ============== */
     function underHeaderIsWhite(){
       const r = headerEl.getBoundingClientRect();
-      const x = Math.floor(window.innerWidth / 2);
-      const y = Math.max(0, Math.floor(r.bottom - 1));
+      // punct SUB navbar (nu în navbar)
+      const x = Math.max(0, Math.min(window.innerWidth  - 1, Math.floor(r.left + r.width / 2)));
+      const y = Math.max(0, Math.min(window.innerHeight - 1, Math.floor(r.bottom + 1)));
       let el = document.elementFromPoint(x, y);
+
       const IGNORES = new Set(['svg','use','path','g','rect','circle','line','polygon','polyline']);
       while (el && el !== document.body){
-        if (el.matches && el.matches('[is-white-section]')) return true;
-        if (!IGNORES.has(el.tagName?.toLowerCase())) { /* keep climbing */ }
+        if (el.matches?.('[is-white-section]')) return true;
+        if (!IGNORES.has(el.tagName?.toLowerCase())) { /* continue climbing */ }
         el = el.parentElement;
       }
       return false;
     }
+
+    function frontTextNodes(){ // re-declared safe (idempotent)
+      return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
+    }
+    function setFrontTextColor(color){ frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' })); }
+
+    function showLogo(white=true){ // re-declared safe (idempotent)
+      const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
+      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
+      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
+    }
+
     function applyWhiteState(){
       const txt1 = $$(S.text1);
-      if (!txt1) console.warn('[Navbar] Lipsă [navbar-text="1"] în DOM.');
       if (tl.progress() > 0 && !tl.reversed()) return; // nu suprascrie când meniul e deschis
-
       const onWhite = underHeaderIsWhite();
-      gsap.to(btn, { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+
+      gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite); // pe alb → logo negru
     }
+
     const rafWhite = () => requestAnimationFrame(applyWhiteState);
     window.addEventListener('load', rafWhite, { passive:true });
     window.addEventListener('resize', rafWhite, { passive:true });
@@ -422,6 +436,9 @@
       applyDropdownState();
       applyWhiteState();
     });
+
+    // helpers expuse în closure
+    function isDropdownOpen(){ return document.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle.w--open').length > 0; }
+    function applyDropdownState(){ /* re-definit mai sus, lăsat în scope */ }
   }
 })();
-
