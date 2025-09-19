@@ -1,6 +1,13 @@
 
 (function(){
-  const boot = () => { if (!window.__NNC_NAV__) { window.__NNC_NAV__ = true; try { init(); } catch(e){ console.error('[Navbar] init error:', e); } } };
+  'use strict';
+
+  const boot = () => {
+    if (window.__NNC_NAV__) return;
+    window.__NNC_NAV__ = true;
+    try { init(); } catch (e) { console.error('[Navbar] init error:', e); }
+  };
+
   if (document.readyState !== 'loading') boot();
   document.addEventListener('DOMContentLoaded', boot, { once:true });
   window.addEventListener('load', boot, { once:true });
@@ -9,6 +16,7 @@
   function init(){
     if (!window.gsap) { console.error('[Navbar] GSAP missing'); return; }
 
+    /* ================= SELECTORS ================= */
     const S = {
       header: '.navbar',
       logosWrap: '.navbar-logos-wrap',
@@ -17,8 +25,8 @@
       logoTalk:  '.navbar-logo-second',
 
       btn: '.navbar-btn',
-      text1: '[navbar-text="1"]',   // "Menu"
-      text2: '[navbar-text="2"]',   // "Close"
+      text1: '[navbar-text="1"]',
+      text2: '[navbar-text="2"]',
 
       frontLinksWrap: '.navbar-front-links',
       frontLink: '.navbat-front-text', // exact ca în markup-ul tău
@@ -42,15 +50,18 @@
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
+    /* ================= CONSTANTS ================= */
     const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const D = reduce ? 0.0001 : 0.85;
     const E = 'power3.inOut';
 
+    /* ================= UTILS ================= */
     function hiddenHeight(el, displayMode='block'){
       if (!el) return 0;
       const prev = { display: el.style.display, position: el.style.position, visibility: el.style.visibility, left: el.style.left, height: el.style.height, overflow: el.style.overflow };
-      const wasHidden = getComputedStyle(el).display==='none' || getComputedStyle(el).visibility==='hidden' || getComputedStyle(el).height==='0px';
+      const gs = getComputedStyle(el);
+      const wasHidden = gs.display==='none' || gs.visibility==='hidden' || gs.height==='0px';
       if (wasHidden){ el.style.display=displayMode; el.style.position='absolute'; el.style.visibility='hidden'; el.style.left='-9999px'; el.style.height='auto'; el.style.overflow='visible'; }
       let h = Math.ceil(el.scrollHeight || el.getBoundingClientRect().height || 0);
       if (wasHidden){ Object.assign(el.style, prev); }
@@ -58,12 +69,25 @@
     }
     const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
 
+    function frontTextNodes(){
+      // vizăm atât linkul cât și span-urile duplicate de roll-effect
+      return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
+    }
+    function setFrontTextColor(color){
+      frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' }));
+    }
+    function showLogo(white=true){
+      const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
+      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
+      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
+    }
+
     // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
       { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
     $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
 
-    /* ============== OVERLAY HOLE ============== */
+    /* ================= OVERLAY "HOLE" ================= */
     const T  = 8, TD = 35, X = 1.5; // vw
     document.querySelectorAll('#nnc-overlay').forEach(n => n.remove());
     const overlay = document.createElement('div'); overlay.id='nnc-overlay';
@@ -83,18 +107,7 @@
     const applyHole = ()=>{ hole.style.setProperty('--t', holeState.t+'vw'); hole.style.setProperty('--x', holeState.x+'vw'); hole.style.opacity=String(holeState.o); };
     applyHole();
 
-    /* ============== UTIL: logo toggle + front text color ============== */
-    function showLogo(white=true){
-      const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
-      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
-      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
-    }
-    function frontTextNodes(){
-      return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
-    }
-    function setFrontTextColor(color){ frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' })); }
-
-    /* ============== INITIAL ============== */
+    /* ================= INITIAL STATE ================= */
     const btnBorder0  = getComputedStyle(btn).borderColor;
     const text2Color0 = getComputedStyle($$(S.text2))?.color || COL.dark;
 
@@ -113,7 +126,7 @@
     }
     setInitial();
 
-    /* ============== TIMELINE MENU ============== */
+    /* ================= MENU TIMELINE ================= */
     const tl = gsap.timeline({
       paused:true,
       defaults:{ ease:E },
@@ -160,12 +173,13 @@
       if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom){ e.preventDefault(); toggleMenu(); }
     }, true);
 
-    /* ============== HOVER SHIFT [navbar-link] + bile ============== */
+    /* ================= HOVER SHIFT [navbar-link] + bile ================= */
     (function(){
       const SHIFT='3.13vw', HOVER_D=0.44, HOVER_E='power3.out';
       const links = $$$(`${S.linkSel}`);
       const ballFor = (i) => document.querySelector(`[navbar-ball="${i}"]`) || null;
       let hoverIndex = null;
+
       function applyHoverLayout(){
         links.forEach((el)=>{
           const idx = parseInt(el.getAttribute('navbar-link'),10) || (links.indexOf(el)+1);
@@ -175,16 +189,19 @@
           if (b) gsap.to(b, { x: (hoverIndex === idx) ? SHIFT : '0vw', duration:HOVER_D, ease:HOVER_E, overwrite:'auto' });
         });
       }
+
       links.forEach((el)=>{
         el.addEventListener('mouseenter', ()=>{ hoverIndex = parseInt(el.getAttribute('navbar-link'),10) || (links.indexOf(el)+1); applyHoverLayout(); });
         el.addEventListener('mouseleave', (e)=>{ const rel=e.relatedTarget; if (!rel || !rel.closest(S.linkSel)) { hoverIndex=null; applyHoverLayout(); } });
       });
+
       (document.querySelector('.navbar-links-list-wrap') || document.querySelector('.navbar-wrapper') || document.body)
         .addEventListener('mouseleave', ()=>{ hoverIndex=null; applyHoverLayout(); });
+
       applyHoverLayout();
     })();
 
-    /* ============== ROLL effect [navbar-text-animation] ============== */
+    /* ================= ROLL effect [navbar-text-animation] ================= */
     (function rollEffectV2(){
       const ROLL_SEL = S.rollSel;
       document.querySelectorAll(ROLL_SEL).forEach(el => {
@@ -231,7 +248,7 @@
       });
     })();
 
-    /* ============== DROPDOWN height-auto robust ============== */
+    /* ================= DROPDOWN height-auto (link blocks) ================= */
     (function(){
       const items = $$$(`${S.navLinkBlockSel}`);
       const OPEN_PB = 8;
@@ -304,10 +321,10 @@
       });
     })();
 
-    /* ============== DROPDOWN STATE & OVERLAY TOP ============== */
+    /* ================= WEBFLOW DROPDOWNS STATE ================= */
     const ddScope   = document.querySelector(S.ddScope) || document;
     const ddRoots   = Array.from(ddScope.querySelectorAll('.w-dropdown'));
-    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" după markup
+    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // conform markup
     const ddLists   = Array.from(ddScope.querySelectorAll('.navbar-navigation.w-dropdown-list'));
     const navLinks  = $$$(`${S.linkSel}`);
     const TOGGLE_Z  = headerZ + 20, LIST_Z = headerZ + 10;
@@ -344,7 +361,7 @@
       applyDropdownState();
     }
 
-    /* ============== DETECTARE [is-white-section] & APPLY ============== */
+    /* ================= COLOR SWITCH pe [is-white-section] ================= */
     function underHeaderIsWhite(){
       const r = headerEl.getBoundingClientRect();
       // punct SUB navbar (nu în navbar)
@@ -361,35 +378,29 @@
       return false;
     }
 
-    function frontTextNodes(){ // re-declared safe (idempotent)
-      return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
-    }
-    function setFrontTextColor(color){ frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' })); }
-
-    function showLogo(white=true){ // re-declared safe (idempotent)
-      const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
-      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
-      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
-    }
-
     function applyWhiteState(){
-      const txt1 = $$(S.text1);
-      if (tl.progress() > 0 && !tl.reversed()) return; // nu suprascrie când meniul e deschis
+      // Nu schimbăm cromatica în timp ce meniul e deschis (timeline controlează)
+      if (tl.progress() > 0 && !tl.reversed()) return;
+
       const onWhite = underHeaderIsWhite();
+      const txt1 = $$(S.text1);
 
       gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite); // pe alb → logo negru
+
+      // (opțional) și o clasă pe header pentru CSS hooks, dacă vrei:
+      headerEl.classList.toggle('on-white', onWhite);
     }
 
     const rafWhite = () => requestAnimationFrame(applyWhiteState);
-    window.addEventListener('load', rafWhite, { passive:true });
+    window.addEventListener('load', rafWhite,  { passive:true });
     window.addEventListener('resize', rafWhite, { passive:true });
     window.addEventListener('scroll', rafWhite, { passive:true });
     applyWhiteState();
 
-    /* ============== CLOSE ON SCROLL + SMART HEADER ============== */
+    /* ================= CLOSE ON SCROLL + SMART HEADER ================= */
     let lastY = window.pageYOffset || 0, ticking=false;
     window.addEventListener('scroll', ()=>{
       if (ticking) return; ticking=true;
@@ -421,7 +432,7 @@
       }, { passive:true });
     })();
 
-    /* ============== REVALIDARE pe RESIZE / BFCache ============== */
+    /* ================= REVALIDARE RESIZE / BFCache ================= */
     let rAF;
     window.addEventListener('resize', ()=>{
       cancelAnimationFrame(rAF);
@@ -436,9 +447,5 @@
       applyDropdownState();
       applyWhiteState();
     });
-
-    // helpers expuse în closure
-    function isDropdownOpen(){ return document.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle.w--open').length > 0; }
-    function applyDropdownState(){ /* re-definit mai sus, lăsat în scope */ }
   }
 })();
