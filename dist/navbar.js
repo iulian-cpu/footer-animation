@@ -9,15 +9,23 @@
   function init(){
     if (!window.gsap) return;
 
+    /* ================= SELECTORS ================= */
     const S = {
-      btn: '.navbar-btn',
-      text1: '.navbar-btn [navbar-text="1"]',
-      text2: '.navbar-btn [navbar-text="2"]',
-      logoA: '.navbar-logo',
-      logoB: '.navbar-logo-second',
-      frontLinks: '.navbar-front-links',
-      backLinks: '.navbar-back-links',
       header: '.navbar',
+      logosWrap: '.navbar-logos-wrap',
+      logoWhite: '[logo-white]',
+      logoBlack: '[logo-black]',
+      logoTalk:  '.navbar-logo-second',
+
+      btn: '.navbar-btn',
+      text1: '.navbar-btn [navbar-text="1"]', // "Menu"
+      text2: '.navbar-btn [navbar-text="2"]', // "Close"
+
+      frontLinksWrap: '.navbar-front-links',
+      frontLink: '.navbat-front-text', // exact cum e în HTML-ul tău
+
+      backLinksWrap:  '.navbar-back-links',
+
       ddScope: '.navbar-dropdown',
       linkSel: '[navbar-link]',
       btnWrapSel: '.navbar-link-btn-wrap',
@@ -29,14 +37,38 @@
 
     const $$  = s => document.querySelector(s);
     const $$$ = s => Array.from(document.querySelectorAll(s));
-    const css = el => { try { return el ? getComputedStyle(el) : null; } catch(_) { return null; } };
 
     const headerEl = $$(S.header);
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
-    /* ---------- Overlay (variabile manuale) ---------- */
-    const FRAME_COLOR='#FFFFD0', FRAME_SIDE='1.5vw', FRAME_TOP='8vw', FRAME_TOP_DD='35vw';
+    /* ================= CONSTANTE & UTILS ================= */
+    const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const D = reduce ? 0.0001 : 0.85;
+    const E = 'power3.inOut';
+
+    const css = el => { try { return el ? getComputedStyle(el) : null; } catch(_) { return null; } };
+    function hiddenHeight(el, displayMode='block'){
+      if (!el) return 0;
+      const prev = { display: el.style.display, position: el.style.position, visibility: el.style.visibility, left: el.style.left, height: el.style.height, overflow: el.style.overflow };
+      const wasHidden = getComputedStyle(el).display==='none' || getComputedStyle(el).visibility==='hidden' || getComputedStyle(el).height==='0px';
+      if (wasHidden){ el.style.display=displayMode; el.style.position='absolute'; el.style.visibility='hidden'; el.style.left='-9999px'; el.style.height='auto'; el.style.overflow='visible'; }
+      let h = Math.ceil(el.scrollHeight || el.getBoundingClientRect().height || 0);
+      if (wasHidden){ Object.assign(el.style, prev); }
+      return h;
+    }
+    const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
+
+    // anti-drift
+    gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
+      { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
+
+    // bilele rămân sub buton
+    $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
+
+    /* ================= OVERLAY "HOLE" ================= */
+    const T  = 8, TD = 35, X = 1.5; // vw
     document.querySelectorAll('#nnc-overlay').forEach(n => n.remove());
     const overlay = document.createElement('div'); overlay.id='nnc-overlay';
     const hole = document.createElement('div'); overlay.appendChild(hole); document.body.appendChild(overlay);
@@ -48,68 +80,57 @@
       position:fixed; top:var(--t,0); left:50%; transform:translateX(-50%);
       width:calc(100vw - 2*var(--x,0)); height:calc(100vh - var(--t,0));
       border-top-left-radius:2rem; border-top-right-radius:2rem;
-      box-shadow:0 0 0 100vmax ${FRAME_COLOR};
+      box-shadow:0 0 0 100vmax ${COL.frame};
       opacity:0; will-change:transform,width,height,opacity;
     `;
-
-    const T  = 8, TD = 35, X = 1.5; // vw (numere)
     const holeState = { t:0, x:0, o:0 };
     const applyHole = ()=>{ hole.style.setProperty('--t', holeState.t+'vw'); hole.style.setProperty('--x', holeState.x+'vw'); hole.style.opacity=String(holeState.o); };
     applyHole();
 
-    /* ---------- Utils ---------- */
-    function hiddenHeight(el, displayMode='flex'){
-      if (!el) return 0;
-      const prev = { display: el.style.display, position: el.style.position, visibility: el.style.visibility, left: el.style.left };
-      const wasHidden = getComputedStyle(el).display==='none';
-      if (wasHidden){ el.style.display=displayMode; el.style.position='absolute'; el.style.visibility='hidden'; el.style.left='-9999px'; }
-      const h = el.getBoundingClientRect().height || 0;
-      if (wasHidden){ el.style.display=prev.display; el.style.position=prev.position; el.style.visibility=prev.visibility; el.style.left=prev.left; }
-      return h;
+    /* ================= STARE INIȚIALĂ ================= */
+    const btnBorder0  = getComputedStyle(btn).borderColor;
+    const text2Color0 = getComputedStyle($$(S.text2))?.color || COL.dark;
+
+    function showLogo(white=true){
+      const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
+      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
+      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
     }
-    const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
-
-    // anti-drift
-    gsap.set([$$(S.text1),$$(S.text2),$$(S.logoA),$$(S.logoB),$$(S.frontLinks),$$(S.backLinks)].filter(Boolean),
-      { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
-
-    // NU mai setăm z-index mare pe bile → vrem sub buton
-    $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
-
-    /* ---------- State ---------- */
-    let allowDdResize=false;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const D = reduce ? 0.0001 : 0.85; // >0 pentru onUpdate
-    const E = 'power3.inOut';
 
     function setInitial(){
-      gsap.set(S.text1,      { y: 0 });
-      gsap.set(S.text2,      { y: H(S.text2) });
-      gsap.set(S.logoA,      { y: 0 });
-      gsap.set(S.logoB,      { y: 3*H(S.logoB) });
-      gsap.set(S.frontLinks, { y: 0, autoAlpha: 1 });
-      const back=$$(S.backLinks);
+      gsap.set(S.text1, { y:0, color: COL.light });
+      gsap.set(S.text2, { y:H(S.text2) });
+      // brand: afișăm logo alb by default, "talk" jos (ascuns)
+      showLogo(true);
+      const talk = $$(S.logoTalk);
+      if (talk) gsap.set(talk, { y:3*H(S.logoTalk) });
+
+      gsap.set(S.frontLinksWrap, { y:0, autoAlpha:1 });
+      const back=$$(S.backLinksWrap);
       if (back) gsap.set(back, { display:'none', y:hiddenHeight(back), autoAlpha:0 });
+
+      // culori pentru front links
+      $$$(`${S.frontLink}`).forEach(el=> gsap.set(el, { color: COL.light }));
+
+      gsap.set(btn, { borderColor: COL.light });
       holeState.t=0; holeState.x=0; holeState.o=0; applyHole();
     }
     setInitial();
 
-    /* ---------- Timeline ---------- */
-    const btnBorder0  = getComputedStyle(btn).borderColor;
-    const text2Color0 = getComputedStyle($$(S.text2))?.color || '#1E1E1E';
-
+    /* ================= TIMELINE MENIU ================= */
     const tl = gsap.timeline({
       paused:true,
       defaults:{ ease:E },
       onStart:()=>{ allowDdResize=false; },
       onComplete:()=>{
         allowDdResize=true;
-        gsap.set(S.text1,      { y:-H(S.text1) });
-        gsap.set(S.text2,      { y:0, color:'#1E1E1E' });
-        gsap.set(S.logoA,      { y:-H(S.logoA) });
-        gsap.set(S.logoB,      { y:0 });
-        gsap.set(S.frontLinks, { y:-H(S.frontLinks), autoAlpha:0 });
-        gsap.set(S.backLinks,  { y:0, autoAlpha:1, display:'flex' });
+        gsap.set(S.text1, { y:-H(S.text1) });
+        gsap.set(S.text2, { y:0, color: COL.dark });
+        // logos: ascundem brandul și aducem "talk"
+        const talk=$$(S.logoTalk);
+        if (talk) { /* e deja animat */ }
+        gsap.set(S.frontLinksWrap, { y:-H(S.frontLinksWrap), autoAlpha:0 });
+        gsap.set(S.backLinksWrap,  { y:0, autoAlpha:1, display:'flex' });
         holeState.t=T; holeState.x=X; holeState.o=1; applyHole();
       },
       onReverseStart:()=>{ allowDdResize=false; },
@@ -119,19 +140,23 @@
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
+        // reasigură culorile în funcție de secțiunea albă
+        applyWhiteState();
       }
     });
 
     tl.add('go')
-      .to(S.text1,      { y:()=>-H(S.text1),      duration:D*0.7 }, 'go')
-      .to(S.text2,      { y:0,                    duration:D*0.7 }, 'go')
-      .to(S.logoA,      { y:()=>-H(S.logoA),      duration:D*0.8 }, 'go+=0.02')
-      .to(S.logoB,      { y:0,                    duration:D*0.8 }, 'go+=0.02')
-      .to(S.frontLinks, { y:()=>-H(S.frontLinks), autoAlpha:0, duration:D*0.75 }, 'go+=0.04')
+      .to(S.text1, { y:()=>-H(S.text1), duration:D*0.7 }, 'go')
+      .to(S.text2, { y:0,             duration:D*0.7 }, 'go')
+      // logos: brand (alb/negru) urcă, "talk" coboară în view
+      .to(S.logoWhite, { y:()=>-H(S.logoWhite), duration:D*0.8 }, 'go+=0.02')
+      .to(S.logoBlack, { y:()=>-H(S.logoBlack), duration:D*0.8 }, 'go+=0.02')
+      .to(S.logoTalk,  { y:0,                  duration:D*0.8 }, 'go+=0.02')
+      .to(S.frontLinksWrap, { y:()=>-H(S.frontLinksWrap), autoAlpha:0, duration:D*0.75 }, 'go+=0.04')
       .add(gsap.to(holeState,{ t:T, x:X, o:1, duration:D*1.05, ease:E, onUpdate:applyHole }), 'go+=0.06')
-      .add(()=>{ const el=$$(S.backLinks); if(el) gsap.set(el,{ display:'flex' }); }, 'go+=0.36')
-      .to(S.backLinks,  { y:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
-      .to(btn, { borderColor: FRAME_COLOR, duration:D*0.6 }, 'go');
+      .add(()=>{ const el=$$(S.backLinksWrap); if(el) gsap.set(el,{ display:'flex' }); }, 'go+=0.36')
+      .to(S.backLinksWrap,  { y:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
+      .to(btn, { borderColor: COL.frame, duration:D*0.6 }, 'go');
 
     function toggleMenu(){
       if (tl.isActive()) return;
@@ -144,8 +169,8 @@
       if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom){ e.preventDefault(); toggleMenu(); }
     }, true);
 
-    /* ---------- HOVER pe [navbar-link] — ca în scriptul vechi ---------- */
-    (function(){
+    /* ================= HOVER SHIFT pe [navbar-link] ================= */
+    ;(function(){
       const SHIFT='3.13vw', HOVER_D=0.44, HOVER_E='power3.out';
       const links = $$$(`${S.linkSel}`);
       const ballFor = (i) => document.querySelector(`[navbar-ball="${i}"]`) || null;
@@ -154,11 +179,8 @@
       function applyHoverLayout(){
         links.forEach((el)=>{
           const idx = parseInt(el.getAttribute('navbar-link'),10) || (links.indexOf(el)+1);
-          // mutăm doar linkurile cu index > hoverIndex
           const moveLinksX = (hoverIndex != null && idx > hoverIndex) ? SHIFT : '0vw';
           gsap.to(el, { x: moveLinksX, duration:HOVER_D, ease:HOVER_E, overwrite:'auto' });
-
-          // bila: doar cea a linkului hoverat se mută
           const b = ballFor(idx);
           if (b) gsap.to(b, { x: (hoverIndex === idx) ? SHIFT : '0vw', duration:HOVER_D, ease:HOVER_E, overwrite:'auto' });
         });
@@ -175,8 +197,8 @@
       applyHoverLayout();
     })();
 
-    /* ---------- ROLL effect pe [navbar-text-animation] ---------- */
-    (function rollEffectV2(){
+    /* ================= ROLL pe [navbar-text-animation] ================= */
+    ;(function rollEffectV2(){
       const ROLL_SEL = S.rollSel;
       document.querySelectorAll(ROLL_SEL).forEach(el => {
         if (el.dataset.ntaInit === 'v2') return;
@@ -222,8 +244,8 @@
       });
     })();
 
-    /* ---------- HEIGHT-AUTO robust pentru dropdown link blocks ---------- */
-    (function(){
+    /* ================= DROPDOWN height-auto robust ================= */
+    ;(function(){
       const items = $$$(`${S.navLinkBlockSel}`);
       const OPEN_PB = 8;
 
@@ -242,7 +264,7 @@
         const first = w.firstElementChild, last = w.lastElementChild;
         if (first){ h += parseFloat(getComputedStyle(first).marginTop || '0'); }
         if (last){  h += parseFloat(getComputedStyle(last).marginBottom || '0'); }
-        w.style.height=prev.height; w.style.position=prev.position; w.style.visibility=prev.visibility; w.style.left=prev.left; w.style.display=prev.display; w.style.overflow=prev.overflow;
+        Object.assign(w.style, prev);
         return Math.ceil(h);
       }
 
@@ -295,15 +317,16 @@
       });
     })();
 
-    /* ---------- Dropdown ---------- */
+    /* ================= DROPDOWN state & overlay top ================= */
     const ddScope   = document.querySelector(S.ddScope) || document;
     const ddRoots   = Array.from(ddScope.querySelectorAll('.w-dropdown'));
-    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle'));
+    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // "navbra" exact ca în markup
     const ddLists   = Array.from(ddScope.querySelectorAll('.navbar-navigation.w-dropdown-list'));
     const navLinks  = $$$(`${S.linkSel}`);
     const TOGGLE_Z  = headerZ + 20, LIST_Z = headerZ + 10;
-    const isDropdownOpen = () => ddToggles.some(tg => tg.classList.contains('w--open'));
+    let allowDdResize=false;
 
+    const isDropdownOpen = () => ddToggles.some(tg => tg.classList.contains('w--open'));
     function applyDropdownState(){
       const anyOpen = isDropdownOpen();
       gsap.to(navLinks, { opacity: anyOpen ? 0.2 : 1, duration:0.25, overwrite:true });
@@ -311,7 +334,7 @@
         const open = tg.classList.contains('w--open');
         if (open) gsap.set(tg, { zIndex:TOGGLE_Z, position:'relative', pointerEvents:'auto' });
         else      gsap.set(tg, { clearProps:'zIndex,position,pointerEvents' });
-        gsap.to(tg, { backgroundColor: open?'#1E1E1E':'', color: open?'#fff':'', duration:0.25, overwrite:true });
+        gsap.to(tg, { backgroundColor: open?COL.dark:'', color: open?COL.light:'', duration:0.25, overwrite:true });
       });
       ddLists.forEach(dl=>{
         const open = dl.classList.contains('w--open');
@@ -334,7 +357,38 @@
       applyDropdownState();
     }
 
-    /* ---------- Close on scroll + smart header ---------- */
+    /* ================= DETECTARE [is-white-section] ================= */
+    function underHeaderIsWhite(){
+      const r = headerEl.getBoundingClientRect();
+      const x = Math.floor(window.innerWidth / 2);
+      const y = Math.max(0, Math.floor(r.bottom - 1));
+      let el = document.elementFromPoint(x, y);
+      while (el && el !== document.body){
+        if (el.matches && el.matches('[is-white-section]')) return true;
+        el = el.parentElement;
+      }
+      return false;
+    }
+    function applyWhiteState(){
+      // dacă meniul e deschis, nu schimbăm cromatica (timeline decide)
+      if (tl.progress() > 0 && !tl.reversed()) return;
+
+      const onWhite = underHeaderIsWhite();
+      // culori buton + front links
+      gsap.to(btn, { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+      $$$(`${S.frontLink}`).forEach(el=> gsap.to(el, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' }));
+      gsap.to(S.text1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+
+      // logo alb/negru
+      showLogo(!onWhite);
+    }
+    const rafWhite = () => requestAnimationFrame(applyWhiteState);
+    window.addEventListener('load', rafWhite, { passive:true });
+    window.addEventListener('resize', rafWhite, { passive:true });
+    window.addEventListener('scroll', rafWhite, { passive:true });
+    applyWhiteState();
+
+    /* ================= CLOSE ON SCROLL + SMART HEADER ================= */
     let lastY = window.pageYOffset || 0, ticking=false;
     window.addEventListener('scroll', ()=>{
       if (ticking) return; ticking=true;
@@ -348,7 +402,7 @@
       });
     }, { passive:true });
 
-    (function(){
+    ;(function(){
       const header=headerEl; if(!header) return;
       gsap.set(header,{ y:0, willChange:'transform', force3D:true });
       let lastY=window.pageYOffset||0, ticking=false, hidden=false, Hh=header.getBoundingClientRect().height;
@@ -366,12 +420,12 @@
       }, { passive:true });
     })();
 
-    // re-validate pe resize & bfcache
+    /* ================= REVALIDARE pe RESIZE / BFCache ================= */
     let rAF;
     window.addEventListener('resize', ()=>{
       cancelAnimationFrame(rAF);
       rAF = requestAnimationFrame(()=>{
-        if (tl.progress()===0 || tl.reversed()) setInitial();
+        if (tl.progress()===0 || tl.reversed()) { setInitial(); applyWhiteState(); }
         else { tl.invalidate(); tl.progress(1); holeState.t=(isDropdownOpen()?TD:T); holeState.x=X; holeState.o=1; applyHole(); }
       });
     });
@@ -379,6 +433,7 @@
       tl.progress(0).pause();
       setInitial();
       applyDropdownState();
+      applyWhiteState();
     });
   }
 })();
