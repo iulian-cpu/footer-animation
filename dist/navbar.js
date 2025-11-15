@@ -1,4 +1,3 @@
-
 (function(){
   'use strict';
 
@@ -29,7 +28,7 @@
       text2: '[navbar-text="2"]',
 
       frontLinksWrap: '.navbar-front-links',
-      frontLink: '.navbat-front-text', // exact ca în markup-ul tău
+      frontLink: '.navbat-front-text',
 
       backLinksWrap:  '.navbar-back-links',
 
@@ -70,7 +69,6 @@
     const H = sel => { const el=$$(sel); return el ? (getComputedStyle(el).display==='none' ? hiddenHeight(el) : (el.getBoundingClientRect().height||0)) : 0; };
 
     function frontTextNodes(){
-      // vizăm atât linkul cât și span-urile duplicate de roll-effect
       return Array.from(document.querySelectorAll('.navbat-front-text, .navbat-front-text .nta-line'));
     }
     function setFrontTextColor(color){
@@ -88,7 +86,7 @@
     $$$('[navbar-ball]').forEach(b=> gsap.set(b, { x:0, autoAlpha:1, visibility:'visible', willChange:'transform' }));
 
     /* ================= OVERLAY "HOLE" ================= */
-    const T  = 8, TD = 35, X = 1.5; // vw
+    const T  = 8, TD = 35, X = 1.5;
     document.querySelectorAll('#nnc-overlay').forEach(n => n.remove());
     const overlay = document.createElement('div'); overlay.id='nnc-overlay';
     const hole = document.createElement('div'); overlay.appendChild(hole); document.body.appendChild(overlay);
@@ -119,9 +117,12 @@
       if (talk) gsap.set(talk, { y:3*(talk.getBoundingClientRect().height||20) });
       gsap.set(S.frontLinksWrap, { y:0, autoAlpha:1 });
       const back=$$(S.backLinksWrap);
-      if (back) gsap.set(back, { display:'none', y:hiddenHeight(back), autoAlpha:0 });
+      // FIX PROBLEMA 1: Schimbăm de unde începe animația (100% în loc de înălțimea completă)
+      if (back) gsap.set(back, { display:'none', yPercent:100, autoAlpha:0 });
       setFrontTextColor(COL.light);
       gsap.set(btn, { borderColor: COL.light });
+      // FIX PROBLEMA 2: Setăm background transparent inițial
+      gsap.set(headerEl, { backgroundColor: 'transparent' });
       holeState.t=0; holeState.x=0; holeState.o=0; applyHole();
     }
     setInitial();
@@ -136,7 +137,7 @@
         gsap.set(S.text1, { y:-H(S.text1) });
         gsap.set(S.text2, { y:0, color: COL.dark });
         gsap.set(S.frontLinksWrap, { y:-H(S.frontLinksWrap), autoAlpha:0 });
-        gsap.set(S.backLinksWrap,  { y:0, autoAlpha:1, display:'flex' });
+        gsap.set(S.backLinksWrap,  { yPercent:0, autoAlpha:1, display:'flex' });
         holeState.t=T; holeState.x=X; holeState.o=1; applyHole();
       },
       onReverseStart:()=>{ allowDdResize=false; },
@@ -158,8 +159,11 @@
       .to(S.logoTalk,  { y:0,                  duration:D*0.8 }, 'go+=0.02')
       .to(S.frontLinksWrap, { y:()=>-H(S.frontLinksWrap), autoAlpha:0, duration:D*0.75 }, 'go+=0.04')
       .add(gsap.to(holeState,{ t:T, x:X, o:1, duration:D*1.05, ease:E, onUpdate:applyHole }), 'go+=0.06')
+      // FIX PROBLEMA 2: Adăugăm animația pentru background
+      .to(headerEl, { backgroundColor: COL.light, duration:D*0.6 }, 'go')
       .add(()=>{ const el=$$(S.backLinksWrap); if(el) gsap.set(el,{ display:'flex' }); }, 'go+=0.36')
-      .to(S.backLinksWrap,  { y:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
+      // FIX PROBLEMA 1: Animăm de la yPercent:100 la yPercent:0
+      .to(S.backLinksWrap,  { yPercent:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
       .to(btn, { borderColor: COL.frame, duration:D*0.6 }, 'go');
 
     function toggleMenu(){
@@ -324,7 +328,7 @@
     /* ================= WEBFLOW DROPDOWNS STATE ================= */
     const ddScope   = document.querySelector(S.ddScope) || document;
     const ddRoots   = Array.from(ddScope.querySelectorAll('.w-dropdown'));
-    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle')); // conform markup
+    const ddToggles = Array.from(ddScope.querySelectorAll('.navbra-dropdown-toggle.w-dropdown-toggle'));
     const ddLists   = Array.from(ddScope.querySelectorAll('.navbar-navigation.w-dropdown-list'));
     const navLinks  = $$$(`${S.linkSel}`);
     const TOGGLE_Z  = headerZ + 20, LIST_Z = headerZ + 10;
@@ -364,7 +368,6 @@
     /* ================= COLOR SWITCH pe [is-white-section] ================= */
     function underHeaderIsWhite(){
       const r = headerEl.getBoundingClientRect();
-      // punct SUB navbar (nu în navbar)
       const x = Math.max(0, Math.min(window.innerWidth  - 1, Math.floor(r.left + r.width / 2)));
       const y = Math.max(0, Math.min(window.innerHeight - 1, Math.floor(r.bottom + 1)));
       let el = document.elementFromPoint(x, y);
@@ -379,7 +382,6 @@
     }
 
     function applyWhiteState(){
-      // Nu schimbăm cromatica în timp ce meniul e deschis (timeline controlează)
       if (tl.progress() > 0 && !tl.reversed()) return;
 
       const onWhite = underHeaderIsWhite();
@@ -388,9 +390,25 @@
       gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       setFrontTextColor(onWhite ? COL.dark : COL.light);
-      showLogo(!onWhite); // pe alb → logo negru
+      
+      // FIX PROBLEMA 3: Schimbăm logica - pe white section → logo NEGRU
+      showLogo(!onWhite); // !onWhite = true când e pe alb → logo alb (GREȘIT)
+      // Corectăm:
+      if (onWhite) {
+        // Pe secțiune albă → arată logo NEGRU
+        const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
+        if (Lw) gsap.to(Lw, { autoAlpha: 0, duration:0.2, onComplete: () => gsap.set(Lw, {display:'none'}), overwrite:'auto' });
+        if (Lb) { gsap.set(Lb, {display:'block'}); gsap.to(Lb, { autoAlpha: 1, duration:0.2, overwrite:'auto' }); }
+      } else {
+        // Pe secțiune dark → arată logo ALB
+        const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
+        if (Lb) gsap.to(Lb, { autoAlpha: 0, duration:0.2, onComplete: () => gsap.set(Lb, {display:'none'}), overwrite:'auto' });
+        if (Lw) { gsap.set(Lw, {display:'block'}); gsap.to(Lw, { autoAlpha: 1, duration:0.2, overwrite:'auto' }); }
+      }
+      
+      // FIX PROBLEMA 2: Background alb când e pe secțiune white
+      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
 
-      // (opțional) și o clasă pe header pentru CSS hooks, dacă vrei:
       headerEl.classList.toggle('on-white', onWhite);
     }
 
