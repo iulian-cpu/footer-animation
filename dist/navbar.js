@@ -49,6 +49,15 @@
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
+    /* ================= FIX: Injectăm CSS pentru nav-active ================= */
+    const style = document.createElement('style');
+    style.textContent = `
+      .navbar.nav-active {
+        background-color: transparent !important;
+      }
+    `;
+    document.head.appendChild(style);
+
     /* ================= CONSTANTS ================= */
     const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -102,38 +111,6 @@
       }
     }
 
-    // FIX: Funcție care verifică dacă meniul e EFECTIV deschis (vizual)
-    function isMenuVisuallyOpen(){
-      const backLinks = $$(S.backLinksWrap);
-      if (!backLinks) return false;
-      const style = getComputedStyle(backLinks);
-      return style.display !== 'none' && parseFloat(style.opacity) > 0.5;
-    }
-
-    // FIX: Background watcher continuu
-    function enforceBackgroundRules(){
-      const visuallyOpen = isMenuVisuallyOpen();
-      
-      if (visuallyOpen) {
-        // MEREU transparent când meniul e vizibil
-        if (headerEl.style.backgroundColor !== 'transparent') {
-          headerEl.style.backgroundColor = 'transparent';
-        }
-      } else if (!menuIsOpen) {
-        // Când meniul e complet închis, aplică regula white section
-        const onWhite = underHeaderIsWhite();
-        const targetBg = onWhite ? COL.light : 'transparent';
-        const currentBg = getComputedStyle(headerEl).backgroundColor;
-        
-        if (currentBg !== targetBg) {
-          gsap.to(headerEl, { backgroundColor: targetBg, duration:0.3, overwrite:'auto' });
-        }
-      }
-    }
-
-    // FIX: Rulează watcher-ul continuu
-    setInterval(enforceBackgroundRules, 100);
-
     // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
       { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
@@ -186,6 +163,8 @@
       onStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
+        // FIX: Adaugă clasa nav-active
+        headerEl.classList.add('nav-active');
       },
       onComplete:()=>{
         allowDdResize=true;
@@ -198,9 +177,13 @@
       onReverseStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
+        // FIX: Menține clasa nav-active în timpul închiderii
+        headerEl.classList.add('nav-active');
       },
       onReverseComplete:()=>{
         menuIsOpen = false;
+        // FIX: Scoate clasa nav-active
+        headerEl.classList.remove('nav-active');
         setInitial();
         gsap.set(btn, { borderColor: btnBorder0 });
         gsap.set(S.text2, { color: text2Color0 });
@@ -443,7 +426,7 @@
     }
 
     function applyWhiteState(){
-      if (menuIsOpen || isMenuVisuallyOpen()) return;
+      if (menuIsOpen) return;
 
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
@@ -452,6 +435,8 @@
       if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite);
+      
+      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
 
       headerEl.classList.toggle('on-white', onWhite);
     }
@@ -506,6 +491,7 @@
     window.addEventListener('pageshow', ()=>{
       tl.progress(0).pause();
       menuIsOpen = false;
+      headerEl.classList.remove('nav-active');
       setInitial();
       applyDropdownState();
       applyWhiteState();
