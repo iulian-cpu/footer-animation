@@ -49,7 +49,7 @@
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
-    /* ================= FIX: Injectăm CSS pentru nav-active ================= */
+    /* ================= FIX: CSS BRUTAL cu !important ================= */
     const style = document.createElement('style');
     style.textContent = `
       .navbar.nav-active {
@@ -65,6 +65,31 @@
     const E = 'power3.inOut';
 
     let menuIsOpen = false;
+
+    /* ================= FIX: WATCHER CONTINUU pentru clasa nav-active ================= */
+    function isMenuVisuallyOpen(){
+      const backLinks = $$(S.backLinksWrap);
+      if (!backLinks) return false;
+      const style = getComputedStyle(backLinks);
+      // Verifică dacă meniul e vizibil: display flex, opacity > 0.3, visibility visible
+      return style.display === 'flex' && 
+             parseFloat(style.opacity) > 0.3 && 
+             style.visibility !== 'hidden';
+    }
+
+    function enforceNavActiveClass(){
+      const shouldBeActive = isMenuVisuallyOpen();
+      const hasClass = headerEl.classList.contains('nav-active');
+      
+      if (shouldBeActive && !hasClass) {
+        headerEl.classList.add('nav-active');
+      } else if (!shouldBeActive && hasClass) {
+        headerEl.classList.remove('nav-active');
+      }
+    }
+
+    // Rulează la fiecare 50ms - foarte agresiv
+    setInterval(enforceNavActiveClass, 50);
 
     /* ================= UTILS ================= */
     function hiddenHeight(el, displayMode='block'){
@@ -163,8 +188,6 @@
       onStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
-        // FIX: Adaugă clasa nav-active
-        headerEl.classList.add('nav-active');
       },
       onComplete:()=>{
         allowDdResize=true;
@@ -177,13 +200,9 @@
       onReverseStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
-        // FIX: Menține clasa nav-active în timpul închiderii
-        headerEl.classList.add('nav-active');
       },
       onReverseComplete:()=>{
         menuIsOpen = false;
-        // FIX: Scoate clasa nav-active
-        headerEl.classList.remove('nav-active');
         setInitial();
         gsap.set(btn, { borderColor: btnBorder0 });
         gsap.set(S.text2, { color: text2Color0 });
@@ -426,7 +445,7 @@
     }
 
     function applyWhiteState(){
-      if (menuIsOpen) return;
+      if (menuIsOpen || isMenuVisuallyOpen()) return;
 
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
@@ -491,7 +510,6 @@
     window.addEventListener('pageshow', ()=>{
       tl.progress(0).pause();
       menuIsOpen = false;
-      headerEl.classList.remove('nav-active');
       setInitial();
       applyDropdownState();
       applyWhiteState();
