@@ -75,11 +75,9 @@
       frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' }));
     }
     
-    // FIX: Funcție mai robustă pentru logo switch cu z-index
     function showLogo(white=true){
       const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
       if (white) {
-        // Arată logo ALB
         if (Lw) {
           gsap.set(Lw, { display:'block', zIndex: 2 });
           gsap.to(Lw, { autoAlpha: 1, duration:0.2, overwrite:'auto' });
@@ -90,7 +88,6 @@
           });
         }
       } else {
-        // Arată logo NEGRU
         if (Lb) {
           gsap.set(Lb, { display:'block', zIndex: 2 });
           gsap.to(Lb, { autoAlpha: 1, duration:0.2, overwrite:'auto' });
@@ -152,7 +149,11 @@
     const tl = gsap.timeline({
       paused:true,
       defaults:{ ease:E },
-      onStart:()=>{ allowDdResize=false; },
+      onStart:()=>{ 
+        allowDdResize=false;
+        // FIX: Când începe să se deschidă meniul → background transparent
+        gsap.to(headerEl, { backgroundColor: 'transparent', duration:0.3, overwrite:'auto' });
+      },
       onComplete:()=>{
         allowDdResize=true;
         gsap.set(S.text1, { y:-H(S.text1) });
@@ -168,6 +169,7 @@
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
+        // FIX: Când se închide complet meniul → aplică logica white state
         applyWhiteState();
       }
     });
@@ -180,7 +182,6 @@
       .to(S.logoTalk,  { y:0,                  duration:D*0.8 }, 'go+=0.02')
       .to(S.frontLinksWrap, { y:()=>-H(S.frontLinksWrap), autoAlpha:0, duration:D*0.75 }, 'go+=0.04')
       .add(gsap.to(holeState,{ t:T, x:X, o:1, duration:D*1.05, ease:E, onUpdate:applyHole }), 'go+=0.06')
-      // FIX: NU mai punem background în timeline - doar în applyWhiteState
       .add(()=>{ const el=$$(S.backLinksWrap); if(el) gsap.set(el,{ display:'flex' }); }, 'go+=0.36')
       .to(S.backLinksWrap,  { yPercent:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
       .to(btn, { borderColor: COL.frame, duration:D*0.6 }, 'go');
@@ -401,31 +402,22 @@
     }
 
     function applyWhiteState(){
-      // FIX: Nu verificăm dacă meniul e deschis - vrem să ruleze mereu
       const menuIsOpen = tl.progress() > 0 && !tl.reversed();
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
 
-      // Culori text și borduri
+      // Culori și logo doar când meniul e închis
       if (!menuIsOpen) {
         gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
         if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
         setFrontTextColor(onWhite ? COL.dark : COL.light);
-      }
-      
-      // FIX LOGO: Pe white section → logo NEGRU, pe dark → logo ALB
-      if (!menuIsOpen) {
-        showLogo(!onWhite); // !onWhite = true când NU e pe alb → logo alb
-      }
-      
-      // FIX BACKGROUND: Doar pe white section + meniu închis
-      if (!menuIsOpen && onWhite) {
-        gsap.to(headerEl, { backgroundColor: COL.light, duration:0.3, overwrite:'auto' });
-      } else if (!menuIsOpen) {
-        gsap.to(headerEl, { backgroundColor: 'transparent', duration:0.3, overwrite:'auto' });
+        showLogo(!onWhite);
+        
+        // FIX: Background alb doar pe white section + meniu închis
+        gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
       }
 
-      headerEl.classList.toggle('on-white', onWhite);
+      headerEl.classList.toggle('on-white', onWhite && !menuIsOpen);
     }
 
     const rafWhite = () => requestAnimationFrame(applyWhiteState);
