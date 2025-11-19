@@ -102,6 +102,18 @@
       }
     }
 
+    // FIX: Funcție care FORȚEAZĂ background-ul bazat pe starea meniului
+    function updateBackground(){
+      if (menuIsOpen) {
+        // MEREU transparent când meniul e deschis
+        headerEl.style.backgroundColor = 'transparent';
+      } else {
+        // Când meniul e închis, aplică logica white section
+        const onWhite = underHeaderIsWhite();
+        gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
+      }
+    }
+
     // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
       { x:0,y:0,xPercent:0,yPercent:0,rotate:0,skewX:0,skewY:0,force3D:true,willChange:'transform' });
@@ -154,8 +166,14 @@
       onStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
-        // FIX: Setează IMEDIAT background transparent folosind gsap.set (nu .to)
-        gsap.set(headerEl, { backgroundColor: 'transparent' });
+        // FIX: Forțează imediat background transparent
+        updateBackground();
+      },
+      onUpdate:()=>{
+        // FIX: Forțează background transparent la fiecare frame
+        if (menuIsOpen) {
+          headerEl.style.backgroundColor = 'transparent';
+        }
       },
       onComplete:()=>{
         allowDdResize=true;
@@ -168,6 +186,8 @@
       onReverseStart:()=>{ 
         allowDdResize=false;
         menuIsOpen = true;
+        // FIX: Menține transparent în timpul închiderii
+        headerEl.style.backgroundColor = 'transparent';
       },
       onReverseComplete:()=>{
         menuIsOpen = false;
@@ -176,8 +196,9 @@
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
-        // Forțăm aplicarea imediată a white state
-        setTimeout(applyWhiteState, 0);
+        // FIX: Aplică background după ce meniul s-a închis
+        updateBackground();
+        applyWhiteState();
       }
     });
 
@@ -414,6 +435,7 @@
     }
 
     function applyWhiteState(){
+      // FIX: IGNORĂ complet dacă meniul e deschis
       if (menuIsOpen) return;
 
       const onWhite = underHeaderIsWhite();
@@ -424,7 +446,8 @@
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite);
       
-      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
+      // Aplică background doar când meniul e închis
+      updateBackground();
 
       headerEl.classList.toggle('on-white', onWhite);
     }
