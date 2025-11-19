@@ -49,7 +49,7 @@
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
-    /* ================= FIX: CSS BRUTAL cu !important ================= */
+    /* ================= FIX: CSS cu !important ================= */
     const style = document.createElement('style');
     style.textContent = `
       .navbar.nav-active {
@@ -66,30 +66,36 @@
 
     let menuIsOpen = false;
 
-    /* ================= FIX: WATCHER CONTINUU pentru clasa nav-active ================= */
-    function isMenuVisuallyOpen(){
-      const backLinks = $$(S.backLinksWrap);
-      if (!backLinks) return false;
-      const style = getComputedStyle(backLinks);
-      // Verifică dacă meniul e vizibil: display flex, opacity > 0.3, visibility visible
-      return style.display === 'flex' && 
-             parseFloat(style.opacity) > 0.3 && 
-             style.visibility !== 'hidden';
-    }
+    /* ================= FIX: MutationObserver pe .navbar-back-links ================= */
+    const backLinksEl = $$(S.backLinksWrap);
+    if (backLinksEl) {
+      const observer = new MutationObserver(() => {
+        const style = getComputedStyle(backLinksEl);
+        const isVisible = style.display === 'flex' && parseFloat(style.opacity) > 0.1;
+        
+        if (isVisible) {
+          if (!headerEl.classList.contains('nav-active')) {
+            headerEl.classList.add('nav-active');
+          }
+        } else {
+          if (headerEl.classList.contains('nav-active')) {
+            headerEl.classList.remove('nav-active');
+          }
+        }
+      });
 
-    function enforceNavActiveClass(){
-      const shouldBeActive = isMenuVisuallyOpen();
-      const hasClass = headerEl.classList.contains('nav-active');
-      
-      if (shouldBeActive && !hasClass) {
+      // Observă schimbări în atributul style
+      observer.observe(backLinksEl, { 
+        attributes: true, 
+        attributeFilter: ['style'] 
+      });
+
+      // Verificare inițială
+      const initialStyle = getComputedStyle(backLinksEl);
+      if (initialStyle.display === 'flex' && parseFloat(initialStyle.opacity) > 0.1) {
         headerEl.classList.add('nav-active');
-      } else if (!shouldBeActive && hasClass) {
-        headerEl.classList.remove('nav-active');
       }
     }
-
-    // Rulează la fiecare 50ms - foarte agresiv
-    setInterval(enforceNavActiveClass, 50);
 
     /* ================= UTILS ================= */
     function hiddenHeight(el, displayMode='block'){
@@ -445,7 +451,7 @@
     }
 
     function applyWhiteState(){
-      if (menuIsOpen || isMenuVisuallyOpen()) return;
+      if (menuIsOpen || headerEl.classList.contains('nav-active')) return;
 
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
