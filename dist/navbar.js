@@ -74,10 +74,33 @@
     function setFrontTextColor(color){
       frontTextNodes().forEach(el => gsap.set(el, { color, overwrite:'auto' }));
     }
+    
+    // FIX: Funcție mai robustă pentru logo switch cu z-index
     function showLogo(white=true){
       const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
-      if (Lw) gsap.set(Lw, { autoAlpha: white?1:0, display: white?'block':'none' });
-      if (Lb) gsap.set(Lb, { autoAlpha: white?0:1, display: white?'none':'block' });
+      if (white) {
+        // Arată logo ALB
+        if (Lw) {
+          gsap.set(Lw, { display:'block', zIndex: 2 });
+          gsap.to(Lw, { autoAlpha: 1, duration:0.2, overwrite:'auto' });
+        }
+        if (Lb) {
+          gsap.to(Lb, { autoAlpha: 0, duration:0.2, overwrite:'auto', 
+            onComplete: () => gsap.set(Lb, { display:'none', zIndex: 1 }) 
+          });
+        }
+      } else {
+        // Arată logo NEGRU
+        if (Lb) {
+          gsap.set(Lb, { display:'block', zIndex: 2 });
+          gsap.to(Lb, { autoAlpha: 1, duration:0.2, overwrite:'auto' });
+        }
+        if (Lw) {
+          gsap.to(Lw, { autoAlpha: 0, duration:0.2, overwrite:'auto',
+            onComplete: () => gsap.set(Lw, { display:'none', zIndex: 1 })
+          });
+        }
+      }
     }
 
     // anti-drift
@@ -117,11 +140,9 @@
       if (talk) gsap.set(talk, { y:3*(talk.getBoundingClientRect().height||20) });
       gsap.set(S.frontLinksWrap, { y:0, autoAlpha:1 });
       const back=$$(S.backLinksWrap);
-      // FIX PROBLEMA 1: Schimbăm de unde începe animația (100% în loc de înălțimea completă)
       if (back) gsap.set(back, { display:'none', yPercent:100, autoAlpha:0 });
       setFrontTextColor(COL.light);
       gsap.set(btn, { borderColor: COL.light });
-      // FIX PROBLEMA 2: Setăm background transparent inițial
       gsap.set(headerEl, { backgroundColor: 'transparent' });
       holeState.t=0; holeState.x=0; holeState.o=0; applyHole();
     }
@@ -159,10 +180,8 @@
       .to(S.logoTalk,  { y:0,                  duration:D*0.8 }, 'go+=0.02')
       .to(S.frontLinksWrap, { y:()=>-H(S.frontLinksWrap), autoAlpha:0, duration:D*0.75 }, 'go+=0.04')
       .add(gsap.to(holeState,{ t:T, x:X, o:1, duration:D*1.05, ease:E, onUpdate:applyHole }), 'go+=0.06')
-      // FIX PROBLEMA 2: Adăugăm animația pentru background
-      .to(headerEl, { backgroundColor: COL.light, duration:D*0.6 }, 'go')
+      // FIX: NU mai punem background în timeline - doar în applyWhiteState
       .add(()=>{ const el=$$(S.backLinksWrap); if(el) gsap.set(el,{ display:'flex' }); }, 'go+=0.36')
-      // FIX PROBLEMA 1: Animăm de la yPercent:100 la yPercent:0
       .to(S.backLinksWrap,  { yPercent:0, autoAlpha:1, duration:D*0.55, ease:'power2.out' }, 'go+=0.36')
       .to(btn, { borderColor: COL.frame, duration:D*0.6 }, 'go');
 
@@ -382,32 +401,29 @@
     }
 
     function applyWhiteState(){
-      if (tl.progress() > 0 && !tl.reversed()) return;
-
+      // FIX: Nu verificăm dacă meniul e deschis - vrem să ruleze mereu
+      const menuIsOpen = tl.progress() > 0 && !tl.reversed();
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
 
-      gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-      if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-      setFrontTextColor(onWhite ? COL.dark : COL.light);
-      
-      // FIX PROBLEMA 3: Schimbăm logica - pe white section → logo NEGRU
-      showLogo(!onWhite); // !onWhite = true când e pe alb → logo alb (GREȘIT)
-      // Corectăm:
-      if (onWhite) {
-        // Pe secțiune albă → arată logo NEGRU
-        const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
-        if (Lw) gsap.to(Lw, { autoAlpha: 0, duration:0.2, onComplete: () => gsap.set(Lw, {display:'none'}), overwrite:'auto' });
-        if (Lb) { gsap.set(Lb, {display:'block'}); gsap.to(Lb, { autoAlpha: 1, duration:0.2, overwrite:'auto' }); }
-      } else {
-        // Pe secțiune dark → arată logo ALB
-        const Lw = $$(S.logoWhite), Lb = $$(S.logoBlack);
-        if (Lb) gsap.to(Lb, { autoAlpha: 0, duration:0.2, onComplete: () => gsap.set(Lb, {display:'none'}), overwrite:'auto' });
-        if (Lw) { gsap.set(Lw, {display:'block'}); gsap.to(Lw, { autoAlpha: 1, duration:0.2, overwrite:'auto' }); }
+      // Culori text și borduri
+      if (!menuIsOpen) {
+        gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+        if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+        setFrontTextColor(onWhite ? COL.dark : COL.light);
       }
       
-      // FIX PROBLEMA 2: Background alb când e pe secțiune white
-      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
+      // FIX LOGO: Pe white section → logo NEGRU, pe dark → logo ALB
+      if (!menuIsOpen) {
+        showLogo(!onWhite); // !onWhite = true când NU e pe alb → logo alb
+      }
+      
+      // FIX BACKGROUND: Doar pe white section + meniu închis
+      if (!menuIsOpen && onWhite) {
+        gsap.to(headerEl, { backgroundColor: COL.light, duration:0.3, overwrite:'auto' });
+      } else if (!menuIsOpen) {
+        gsap.to(headerEl, { backgroundColor: 'transparent', duration:0.3, overwrite:'auto' });
+      }
 
       headerEl.classList.toggle('on-white', onWhite);
     }
