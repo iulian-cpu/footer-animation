@@ -55,6 +55,9 @@
     const D = reduce ? 0.0001 : 0.85;
     const E = 'power3.inOut';
 
+    // FIX: Flag pentru controlul manual al background-ului
+    let menuIsOpen = false;
+
     /* ================= UTILS ================= */
     function hiddenHeight(el, displayMode='block'){
       if (!el) return 0;
@@ -151,7 +154,8 @@
       defaults:{ ease:E },
       onStart:()=>{ 
         allowDdResize=false;
-        // FIX: Când începe să se deschidă meniul → background transparent
+        // FIX: Setăm flag + forțăm background transparent
+        menuIsOpen = true;
         gsap.to(headerEl, { backgroundColor: 'transparent', duration:0.3, overwrite:'auto' });
       },
       onComplete:()=>{
@@ -162,14 +166,20 @@
         gsap.set(S.backLinksWrap,  { yPercent:0, autoAlpha:1, display:'flex' });
         holeState.t=T; holeState.x=X; holeState.o=1; applyHole();
       },
-      onReverseStart:()=>{ allowDdResize=false; },
+      onReverseStart:()=>{ 
+        allowDdResize=false;
+        // FIX: Când începe să se închidă, menține flag activ
+        menuIsOpen = true;
+      },
       onReverseComplete:()=>{
+        // FIX: Doar ACUM resetăm flag-ul
+        menuIsOpen = false;
         setInitial();
         gsap.set(btn, { borderColor: btnBorder0 });
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
-        // FIX: Când se închide complet meniul → aplică logica white state
+        // Aplică imediat white state după ce meniul s-a închis complet
         applyWhiteState();
       }
     });
@@ -191,10 +201,12 @@
       if (tl.reversed() || tl.progress()===0) { tl.invalidate(); tl.play(); }
       else { tl.reverse(); }
     }
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); toggleMenu(); }, { passive:true });
+    
+    // FIX: Schimbăm event listeners să nu fie passive
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleMenu(); });
     document.addEventListener('click', (e)=>{
       const r = btn.getBoundingClientRect(), x=e.clientX, y=e.clientY;
-      if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom){ e.preventDefault(); toggleMenu(); }
+      if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom){ e.preventDefault(); e.stopPropagation(); toggleMenu(); }
     }, true);
 
     /* ================= HOVER SHIFT [navbar-link] + bile ================= */
@@ -402,22 +414,21 @@
     }
 
     function applyWhiteState(){
-      const menuIsOpen = tl.progress() > 0 && !tl.reversed();
+      // FIX: Nu fă nimic dacă meniul e deschis
+      if (menuIsOpen) return;
+
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
 
-      // Culori și logo doar când meniul e închis
-      if (!menuIsOpen) {
-        gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-        if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
-        setFrontTextColor(onWhite ? COL.dark : COL.light);
-        showLogo(!onWhite);
-        
-        // FIX: Background alb doar pe white section + meniu închis
-        gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
-      }
+      gsap.to(btn,  { borderColor: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+      if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
+      setFrontTextColor(onWhite ? COL.dark : COL.light);
+      showLogo(!onWhite);
+      
+      // Background alb doar pe white section când meniul e închis
+      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
 
-      headerEl.classList.toggle('on-white', onWhite && !menuIsOpen);
+      headerEl.classList.toggle('on-white', onWhite);
     }
 
     const rafWhite = () => requestAnimationFrame(applyWhiteState);
@@ -469,6 +480,7 @@
     });
     window.addEventListener('pageshow', ()=>{
       tl.progress(0).pause();
+      menuIsOpen = false;
       setInitial();
       applyDropdownState();
       applyWhiteState();
