@@ -55,7 +55,6 @@
     const D = reduce ? 0.0001 : 0.85;
     const E = 'power3.inOut';
 
-    // FIX: Flag pentru controlul manual al background-ului
     let menuIsOpen = false;
 
     /* ================= UTILS ================= */
@@ -154,9 +153,9 @@
       defaults:{ ease:E },
       onStart:()=>{ 
         allowDdResize=false;
-        // FIX: Setăm flag + forțăm background transparent
         menuIsOpen = true;
-        gsap.to(headerEl, { backgroundColor: 'transparent', duration:0.3, overwrite:'auto' });
+        // FIX: Setează IMEDIAT background transparent folosind gsap.set (nu .to)
+        gsap.set(headerEl, { backgroundColor: 'transparent' });
       },
       onComplete:()=>{
         allowDdResize=true;
@@ -168,19 +167,17 @@
       },
       onReverseStart:()=>{ 
         allowDdResize=false;
-        // FIX: Când începe să se închidă, menține flag activ
         menuIsOpen = true;
       },
       onReverseComplete:()=>{
-        // FIX: Doar ACUM resetăm flag-ul
         menuIsOpen = false;
         setInitial();
         gsap.set(btn, { borderColor: btnBorder0 });
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
-        // Aplică imediat white state după ce meniul s-a închis complet
-        applyWhiteState();
+        // Forțăm aplicarea imediată a white state
+        setTimeout(applyWhiteState, 0);
       }
     });
 
@@ -198,11 +195,14 @@
 
     function toggleMenu(){
       if (tl.isActive()) return;
-      if (tl.reversed() || tl.progress()===0) { tl.invalidate(); tl.play(); }
-      else { tl.reverse(); }
+      if (tl.reversed() || tl.progress()===0) { 
+        tl.invalidate(); 
+        tl.play(); 
+      } else { 
+        tl.reverse(); 
+      }
     }
     
-    // FIX: Schimbăm event listeners să nu fie passive
     btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleMenu(); });
     document.addEventListener('click', (e)=>{
       const r = btn.getBoundingClientRect(), x=e.clientX, y=e.clientY;
@@ -414,7 +414,6 @@
     }
 
     function applyWhiteState(){
-      // FIX: Nu fă nimic dacă meniul e deschis
       if (menuIsOpen) return;
 
       const onWhite = underHeaderIsWhite();
@@ -425,7 +424,6 @@
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite);
       
-      // Background alb doar pe white section când meniul e închis
       gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
 
       headerEl.classList.toggle('on-white', onWhite);
