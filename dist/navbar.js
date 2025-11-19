@@ -49,14 +49,21 @@
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
 
-    /* ================= FIX: CSS cu !important ================= */
-    const style = document.createElement('style');
-    style.textContent = `
-      .navbar.nav-active {
-        background-color: transparent !important;
-      }
+    /* ================= FIX: OVERLAY PENTRU BACKGROUND ================= */
+    document.querySelectorAll('#navbar-bg-overlay').forEach(el => el.remove());
+    
+    const bgOverlay = document.createElement('div');
+    bgOverlay.id = 'navbar-bg-overlay';
+    bgOverlay.style.cssText = `
+      position: absolute;
+      inset: 0;
+      background-color: transparent;
+      pointer-events: none;
+      z-index: -1;
+      transition: background-color 0.3s ease;
     `;
-    document.head.appendChild(style);
+    headerEl.style.position = 'relative';
+    headerEl.insertBefore(bgOverlay, headerEl.firstChild);
 
     /* ================= CONSTANTS ================= */
     const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
@@ -66,36 +73,26 @@
 
     let menuIsOpen = false;
 
-    /* ================= FIX: MutationObserver pe .navbar-back-links ================= */
-    const backLinksEl = $$(S.backLinksWrap);
-    if (backLinksEl) {
-      const observer = new MutationObserver(() => {
-        const style = getComputedStyle(backLinksEl);
-        const isVisible = style.display === 'flex' && parseFloat(style.opacity) > 0.1;
-        
-        if (isVisible) {
-          if (!headerEl.classList.contains('nav-active')) {
-            headerEl.classList.add('nav-active');
-          }
-        } else {
-          if (headerEl.classList.contains('nav-active')) {
-            headerEl.classList.remove('nav-active');
-          }
-        }
-      });
-
-      // Observă schimbări în atributul style
-      observer.observe(backLinksEl, { 
-        attributes: true, 
-        attributeFilter: ['style'] 
-      });
-
-      // Verificare inițială
-      const initialStyle = getComputedStyle(backLinksEl);
-      if (initialStyle.display === 'flex' && parseFloat(initialStyle.opacity) > 0.1) {
-        headerEl.classList.add('nav-active');
+    /* ================= FIX: Funcție care controlează overlay-ul ================= */
+    function updateOverlayBackground(){
+      const backLinks = $$(S.backLinksWrap);
+      if (!backLinks) return;
+      
+      const style = getComputedStyle(backLinks);
+      const isMenuVisible = style.display === 'flex' && parseFloat(style.opacity) > 0.1;
+      
+      if (isMenuVisible) {
+        // Meniu deschis → transparent
+        bgOverlay.style.backgroundColor = 'transparent';
+      } else {
+        // Meniu închis → verifică secțiunea
+        const onWhite = underHeaderIsWhite();
+        bgOverlay.style.backgroundColor = onWhite ? COL.light : 'transparent';
       }
     }
+
+    // Verificare continuu la fiecare 100ms
+    setInterval(updateOverlayBackground, 100);
 
     /* ================= UTILS ================= */
     function hiddenHeight(el, displayMode='block'){
@@ -182,7 +179,6 @@
       if (back) gsap.set(back, { display:'none', yPercent:100, autoAlpha:0 });
       setFrontTextColor(COL.light);
       gsap.set(btn, { borderColor: COL.light });
-      gsap.set(headerEl, { backgroundColor: 'transparent' });
       holeState.t=0; holeState.x=0; holeState.o=0; applyHole();
     }
     setInitial();
@@ -451,7 +447,7 @@
     }
 
     function applyWhiteState(){
-      if (menuIsOpen || headerEl.classList.contains('nav-active')) return;
+      if (menuIsOpen) return;
 
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
@@ -461,7 +457,8 @@
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite);
       
-      gsap.to(headerEl, { backgroundColor: onWhite ? COL.light : 'transparent', duration:0.3, overwrite:'auto' });
+      // Actualizează și overlay-ul
+      updateOverlayBackground();
 
       headerEl.classList.toggle('on-white', onWhite);
     }
