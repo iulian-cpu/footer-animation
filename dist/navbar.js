@@ -15,10 +15,6 @@
   function init(){
     if (!window.gsap) { console.error('[Navbar] GSAP missing'); return; }
 
-    // DEBUG: Flag pentru debugging
-    const DEBUG = true;
-    const log = (...args) => { if (DEBUG) console.log('[Navbar]', ...args); };
-
     /* ================= SELECTORS ================= */
     const S = {
       header: '.navbar',
@@ -52,8 +48,6 @@
     const headerEl = $$(S.header);
     const btn      = $$(S.btn);
     if (!headerEl || !btn) return;
-
-    log('✅ Script initialized');
 
     /* ================= CONSTANTS ================= */
     const COL = { frame:'#FFFFD0', dark:'#1E1E1E', light:'#FFFFFF' };
@@ -108,33 +102,37 @@
       }
     }
 
-    // DEBUG: Funcție care forțează și loggează
-    function updateBackground(){
-      const computedBefore = getComputedStyle(headerEl).backgroundColor;
-      const inlineBefore = headerEl.style.backgroundColor;
-      
-      if (menuIsOpen) {
-        log('🔴 MENU OPEN - Setting transparent');
-        headerEl.style.backgroundColor = 'transparent';
-        // DEBUG: Forțează și cu !important prin CSS
-        headerEl.style.setProperty('background-color', 'transparent', 'important');
-      } else {
-        const onWhite = underHeaderIsWhite();
-        log('🟢 MENU CLOSED - On white section:', onWhite);
-        const newColor = onWhite ? COL.light : 'transparent';
-        headerEl.style.removeProperty('background-color');
-        gsap.to(headerEl, { backgroundColor: newColor, duration:0.3, overwrite:'auto' });
-      }
-      
-      const computedAfter = getComputedStyle(headerEl).backgroundColor;
-      const inlineAfter = headerEl.style.backgroundColor;
-      
-      log('Background change:', {
-        menuIsOpen,
-        before: { computed: computedBefore, inline: inlineBefore },
-        after: { computed: computedAfter, inline: inlineAfter }
-      });
+    // FIX: Funcție care verifică dacă meniul e EFECTIV deschis (vizual)
+    function isMenuVisuallyOpen(){
+      const backLinks = $$(S.backLinksWrap);
+      if (!backLinks) return false;
+      const style = getComputedStyle(backLinks);
+      return style.display !== 'none' && parseFloat(style.opacity) > 0.5;
     }
+
+    // FIX: Background watcher continuu
+    function enforceBackgroundRules(){
+      const visuallyOpen = isMenuVisuallyOpen();
+      
+      if (visuallyOpen) {
+        // MEREU transparent când meniul e vizibil
+        if (headerEl.style.backgroundColor !== 'transparent') {
+          headerEl.style.backgroundColor = 'transparent';
+        }
+      } else if (!menuIsOpen) {
+        // Când meniul e complet închis, aplică regula white section
+        const onWhite = underHeaderIsWhite();
+        const targetBg = onWhite ? COL.light : 'transparent';
+        const currentBg = getComputedStyle(headerEl).backgroundColor;
+        
+        if (currentBg !== targetBg) {
+          gsap.to(headerEl, { backgroundColor: targetBg, duration:0.3, overwrite:'auto' });
+        }
+      }
+    }
+
+    // FIX: Rulează watcher-ul continuu
+    setInterval(enforceBackgroundRules, 100);
 
     // anti-drift
     gsap.set([$$(S.text1), $$(S.text2), $$(S.logosWrap), $$(S.logoWhite), $$(S.logoBlack), $$(S.logoTalk), $$(S.frontLinksWrap), $$(S.backLinksWrap)].filter(Boolean),
@@ -186,19 +184,10 @@
       paused:true,
       defaults:{ ease:E },
       onStart:()=>{ 
-        log('🎬 Timeline START');
         allowDdResize=false;
         menuIsOpen = true;
-        updateBackground();
-      },
-      onUpdate:()=>{
-        // DEBUG: Forțează la fiecare frame
-        if (menuIsOpen) {
-          headerEl.style.setProperty('background-color', 'transparent', 'important');
-        }
       },
       onComplete:()=>{
-        log('✅ Timeline COMPLETE');
         allowDdResize=true;
         gsap.set(S.text1, { y:-H(S.text1) });
         gsap.set(S.text2, { y:0, color: COL.dark });
@@ -207,20 +196,16 @@
         holeState.t=T; holeState.x=X; holeState.o=1; applyHole();
       },
       onReverseStart:()=>{ 
-        log('⏪ Timeline REVERSE START');
         allowDdResize=false;
         menuIsOpen = true;
-        headerEl.style.setProperty('background-color', 'transparent', 'important');
       },
       onReverseComplete:()=>{
-        log('⏮️ Timeline REVERSE COMPLETE');
         menuIsOpen = false;
         setInitial();
         gsap.set(btn, { borderColor: btnBorder0 });
         gsap.set(S.text2, { color: text2Color0 });
         gsap.to($$$(S.linkSel), { opacity:1, duration:0.25, overwrite:true });
         forceCloseDropdowns();
-        updateBackground();
         applyWhiteState();
       }
     });
@@ -239,7 +224,6 @@
 
     function toggleMenu(){
       if (tl.isActive()) return;
-      log('🔄 Toggle menu - current state:', tl.reversed() || tl.progress()===0 ? 'closed' : 'open');
       if (tl.reversed() || tl.progress()===0) { 
         tl.invalidate(); 
         tl.play(); 
@@ -459,10 +443,7 @@
     }
 
     function applyWhiteState(){
-      if (menuIsOpen) {
-        log('⏭️ applyWhiteState skipped - menu is open');
-        return;
-      }
+      if (menuIsOpen || isMenuVisuallyOpen()) return;
 
       const onWhite = underHeaderIsWhite();
       const txt1 = $$(S.text1);
@@ -471,8 +452,6 @@
       if (txt1) gsap.to(txt1, { color: onWhite ? COL.dark : COL.light, duration:0.2, overwrite:'auto' });
       setFrontTextColor(onWhite ? COL.dark : COL.light);
       showLogo(!onWhite);
-      
-      updateBackground();
 
       headerEl.classList.toggle('on-white', onWhite);
     }
@@ -531,20 +510,5 @@
       applyDropdownState();
       applyWhiteState();
     });
-
-    // DEBUG: Expune funcții pentru testing în console
-    window.__NAVBAR_DEBUG__ = {
-      menuIsOpen: () => menuIsOpen,
-      forceTransparent: () => {
-        menuIsOpen = true;
-        updateBackground();
-      },
-      getBgColor: () => ({
-        computed: getComputedStyle(headerEl).backgroundColor,
-        inline: headerEl.style.backgroundColor
-      })
-    };
-    
-    log('🎯 Debug functions available: window.__NAVBAR_DEBUG__');
   }
 })();
